@@ -391,6 +391,7 @@ func (b *codeGenOpBuilder) MakeOperation() (GenOperation, error) {
 	responses := make([]GenResponse, 0, len(srs))
 	var defaultResponse *GenResponse
 	var successResponses []GenResponse
+	var failResponses []GenResponse
 	if operation.Responses != nil {
 		for _, v := range srs {
 			name, ok := v.Response.Extensions.GetString(xGoName)
@@ -405,6 +406,8 @@ func (b *codeGenOpBuilder) MakeOperation() (GenOperation, error) {
 			}
 			if isSuccess {
 				successResponses = append(successResponses, gr)
+			} else {
+				failResponses = append(failResponses, gr)
 			}
 			responses = append(responses, gr)
 		}
@@ -464,6 +467,23 @@ func (b *codeGenOpBuilder) MakeOperation() (GenOperation, error) {
 			break
 		}
 	}
+
+	var failResponse *GenResponse = nil
+	for _, sr := range failResponses {
+		if sr.Code == 400 {
+			failResponse = &sr
+			break
+		}
+	}
+	if failResponse == nil {
+		for _, sr := range failResponses {
+			if !sr.IsSuccess {
+				failResponse = &sr
+				break
+			}
+		}
+	}
+
 	if !hasStreamingResponse {
 		for _, r := range responses {
 			if r.Schema != nil && r.Schema.IsStream {
@@ -511,6 +531,8 @@ func (b *codeGenOpBuilder) MakeOperation() (GenOperation, error) {
 		DefaultResponse:      defaultResponse,
 		SuccessResponse:      successResponse,
 		SuccessResponses:     successResponses,
+		FailResponses:        failResponses,
+		FailResponse:         failResponse,
 		ExtraSchemas:         gatherExtraSchemas(b.ExtraSchemas),
 		Schemes:              schemeOrDefault(schemes, b.DefaultScheme),
 		ProducesMediaTypes:   produces,
